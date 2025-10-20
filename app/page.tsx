@@ -6,30 +6,31 @@ export default function Home() {
       {/* Header */}
       <div className="text-center">
         <h1 className="text-4xl font-bold text-blue-700 mb-2">
-          Mainframe Assignment System
+          📊 Attendance Report Generation System
         </h1>
         <p className="text-lg text-gray-600">
-          JCL SORT Simulation with DB2 Integration
+          Using Mainframe JCL SORT Logic with DB2 Integration
         </p>
       </div>
 
       {/* Assignment Info */}
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-600 p-6 rounded-lg shadow-sm">
         <h2 className="text-xl font-semibold text-blue-800 mb-3">
-          📋 Assignment #1: PS File Processing
+          🎯 Project: Attendance Report Generation Using JCL SORT
         </h2>
         <div className="text-gray-700 space-y-2">
-          <p><strong>Objective:</strong> Process a Physical Sequential (PS) file with 100 records</p>
+          <p><strong>Objective:</strong> Generate employee attendance reports using mainframe-style processing</p>
           <ul className="list-disc list-inside ml-4 space-y-1">
-            <li>Each record: 80 bytes fixed-length</li>
-            <li>Primary key: Columns 13-20 (8 bytes)</li>
-            <li>Data: 100 records (90 unique + 10 duplicates) in random order</li>
+            <li><strong>Attendance Mode:</strong> Process CSV files with employee attendance data</li>
+            <li><strong>Assignment Mode:</strong> Process 80-byte PS files (for mainframe simulation)</li>
           </ul>
-          <p className="mt-3"><strong>Tasks:</strong></p>
+          <p className="mt-3"><strong>JCL SORT Implementation:</strong></p>
           <ul className="list-disc list-inside ml-4 space-y-1">
-            <li>✓ Eliminate duplicate records (SUM FIELDS=NONE)</li>
-            <li>✓ Sort by primary key ascending (SORT FIELDS=(13,8,CH,A))</li>
-            <li>✓ Store results in DB2 database</li>
+            <li>✅ Duplicate elimination based on primary key (EmpID + Date)</li>
+            <li>✅ Sort by Employee ID ascending (SORT FIELDS=(1,8,CH,A))</li>
+            <li>✅ Secondary sort by Date ascending</li>
+            <li>✅ Store results in DB2 database</li>
+            <li>✅ Job tracking with return codes (like z/OS JCL)</li>
           </ul>
         </div>
       </div>
@@ -43,14 +44,14 @@ export default function Home() {
           <div className="text-center">
             <div className="text-5xl mb-4">📤</div>
             <h2 className="text-2xl font-semibold text-blue-600 mb-3">
-              Upload PS File
+              Upload Attendance Data
             </h2>
             <p className="text-gray-600 text-sm mb-4">
-              Upload your 80-byte fixed-length PS file for processing
+              Upload CSV or PS files for processing with JCL SORT logic
             </p>
             <div className="bg-blue-100 text-blue-800 text-xs font-mono p-3 rounded">
-              Simulates: SORT FIELDS=(13,8,CH,A)<br/>
-              SUM FIELDS=NONE
+              Attendance: SORT by EmpID+Date<br/>
+              Assignment: SORT by Columns 13-20
             </div>
           </div>
         </Link>
@@ -62,14 +63,14 @@ export default function Home() {
           <div className="text-center">
             <div className="text-5xl mb-4">📊</div>
             <h2 className="text-2xl font-semibold text-green-600 mb-3">
-              View Reports
+              View Attendance Reports
             </h2>
             <p className="text-gray-600 text-sm mb-4">
-              View sorted records and job processing statistics
+              View sorted attendance records and processing statistics
             </p>
             <div className="bg-green-100 text-green-800 text-xs font-mono p-3 rounded">
-              Results stored in DB2<br/>
-              Sorted by PRIMARY_KEY
+              Sorted & Deduplicated<br/>
+              Stored in DB2
             </div>
           </div>
         </Link>
