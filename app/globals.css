@@ -21,6 +21,55 @@
 
 body {
   background: var(--background);
-  color: var(--foreground);
+  color: #ffffff !important; /* Force all text to be white */
   font-family: Arial, Helvetica, sans-serif;
+}
+
+.shadow-white {
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
+}
+
+/* Glassmorphism effect */
+.glass {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.glass-strong {
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+/* Navbar glass */
+.glass-navbar {
+  background: rgba(128, 0, 128, 0.2);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+/* Ensure all text elements are white */
+p, h1, h2, h3, h4, h5, h6, span, div, td, th, label, a, button {
+  color: #ffffff !important;
+}
+
+/* Badge styles */
+.bg-green-600 {
+  background-color: #16a34a !important;
+}
+
+.bg-red-600 {
+  background-color: #dc2626 !important;
+}
+
+/* Hover effect for report cards */
+.hover\:bg-purple-800:hover {
+  background-color: rgba(128, 0, 128, 0.8) !important;
 }

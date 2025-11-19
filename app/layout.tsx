@@ -9,21 +9,33 @@ export const metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="bg-gray-50 text-gray-800">
-        <nav className="bg-blue-600 text-white px-8 py-4 flex justify-between">
-          <h1 className="font-bold text-lg">Attendance System</h1>
-          <div className="space-x-4">
-            <Link href="/upload" className="hover:underline">
+      <body className="bg-black text-white">
+        <nav className="bg-purple-900 text-white px-8 py-6 flex justify-between items-center shadow-lg">
+          <h1 className="text-3xl font-bold text-white shadow-white">
+            Attendance System
+          </h1>
+          <div className="space-x-6">
+            <Link
+              href="/upload"
+              className="text-white hover:text-purple-300 transition-all shadow-white"
+            >
               Upload
             </Link>
-            <Link href="/report" className="hover:underline">
-              Report
+            <Link
+              href="/report"
+              className="text-white hover:text-purple-300 transition-all shadow-white"
+            >
+              Reports
+            </Link>
+            <Link
+              href="/report-history"
+              className="text-white hover:text-purple-300 transition-all shadow-white"
+            >
+              History
             </Link>
           </div>
         </nav>
-        <main className="max-w-4xl mx-auto mt-10 p-6 bg-white rounded-2xl shadow-sm">
-          {children}
-        </main>
+        <main className="max-w-7xl mx-auto mt-10 p-8">{children}</main>
       </body>
     </html>
   );

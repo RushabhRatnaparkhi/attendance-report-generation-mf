@@ -2,30 +2,30 @@ import Link from "next/link";
 
 export default function Home() {
   return (
-    <div className="space-y-8">
+    <div className="space-y-12 p-8 bg-black text-white">
       {/* Header */}
-      <div className="text-center">
-        <h1 className="text-4xl font-bold text-blue-700 mb-2">
-          📊 Attendance Report Generation System
+      <div className="text-center glass-navbar p-10 rounded-lg shadow-lg">
+        <h1 className="text-5xl font-bold text-white shadow-white mb-4">
+          Attendance Report Generation System
         </h1>
-        <p className="text-lg text-gray-600">
+        <p className="text-lg text-white shadow-white">
           Using Mainframe JCL SORT Logic with DB2 Integration
         </p>
       </div>
 
       {/* Assignment Info */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-600 p-6 rounded-lg shadow-sm">
-        <h2 className="text-xl font-semibold text-blue-800 mb-3">
-          🎯 Project: Attendance Report Generation Using JCL SORT
+      <div className="glass-strong border-l-4 border-purple-500 p-6 rounded-lg shadow-lg">
+        <h2 className="text-2xl font-semibold text-white shadow-white mb-4">
+          Project: Attendance Report Generation Using JCL SORT
         </h2>
-        <div className="text-gray-700 space-y-2">
+        <div className="text-white shadow-white space-y-4">
           <p><strong>Objective:</strong> Generate employee attendance reports using mainframe-style processing</p>
-          <ul className="list-disc list-inside ml-4 space-y-1">
+          <ul className="list-disc list-inside ml-4 space-y-2">
             <li><strong>Attendance Mode:</strong> Process CSV files with employee attendance data</li>
             <li><strong>Assignment Mode:</strong> Process 80-byte PS files (for mainframe simulation)</li>
           </ul>
-          <p className="mt-3"><strong>JCL SORT Implementation:</strong></p>
-          <ul className="list-disc list-inside ml-4 space-y-1">
+          <p className="mt-4"><strong>JCL SORT Implementation:</strong></p>
+          <ul className="list-disc list-inside ml-4 space-y-2">
             <li>✅ Duplicate elimination based on primary key (EmpID + Date)</li>
             <li>✅ Sort by Employee ID ascending (SORT FIELDS=(1,8,CH,A))</li>
             <li>✅ Secondary sort by Date ascending</li>
@@ -36,83 +36,69 @@ export default function Home() {
       </div>
 
       {/* Main Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Link
-          href="/upload"
-          className="group border-2 border-blue-500 hover:bg-blue-50 p-8 rounded-xl shadow-md hover:shadow-lg transition-all"
-        >
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="glass group border-2 border-purple-500 hover:bg-purple-800 p-8 rounded-xl shadow-lg hover:shadow-xl transition-all">
           <div className="text-center">
-            <div className="text-5xl mb-4">📤</div>
-            <h2 className="text-2xl font-semibold text-blue-600 mb-3">
+            <div className="text-5xl mb-4 text-white shadow-white">📤</div>
+            <h2 className="text-3xl font-semibold text-white shadow-white mb-4">
               Upload Attendance Data
             </h2>
-            <p className="text-gray-600 text-sm mb-4">
+            <p className="text-white shadow-white text-sm mb-4">
               Upload CSV or PS files for processing with JCL SORT logic
             </p>
-            <div className="bg-blue-100 text-blue-800 text-xs font-mono p-3 rounded">
-              Attendance: SORT by EmpID+Date<br/>
-              Assignment: SORT by Columns 13-20
-            </div>
           </div>
-        </Link>
+        </div>
 
-        <Link
-          href="/report"
-          className="group border-2 border-green-500 hover:bg-green-50 p-8 rounded-xl shadow-md hover:shadow-lg transition-all"
-        >
+        <div className="glass group border-2 border-purple-500 hover:bg-purple-800 p-8 rounded-xl shadow-lg hover:shadow-xl transition-all">
           <div className="text-center">
-            <div className="text-5xl mb-4">📊</div>
-            <h2 className="text-2xl font-semibold text-green-600 mb-3">
+            <div className="text-5xl mb-4 text-white shadow-white">📊</div>
+            <h2 className="text-3xl font-semibold text-white shadow-white mb-4">
               View Attendance Reports
             </h2>
-            <p className="text-gray-600 text-sm mb-4">
+            <p className="text-white shadow-white text-sm mb-4">
               View sorted attendance records and processing statistics
             </p>
-            <div className="bg-green-100 text-green-800 text-xs font-mono p-3 rounded">
-              Sorted & Deduplicated<br/>
-              Stored in DB2
-            </div>
           </div>
-        </Link>
+        </div>
       </div>
 
       {/* Features */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
-        <div className="bg-white p-6 rounded-lg shadow border border-gray-200">
-          <div className="text-3xl mb-2">🔧</div>
-          <h3 className="font-semibold text-gray-800 mb-2">JCL SORT Logic</h3>
-          <p className="text-sm text-gray-600">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="glass-strong p-6 rounded-lg shadow-lg border border-purple-500">
+          <div className="text-3xl mb-4 text-white shadow-white">🔧</div>
+          <h3 className="font-semibold text-white shadow-white mb-4">JCL SORT Logic</h3>
+          <p className="text-white shadow-white text-sm">
             Simulates mainframe SORT utility with duplicate elimination
           </p>
         </div>
         
-        <div className="bg-white p-6 rounded-lg shadow border border-gray-200">
-          <div className="text-3xl mb-2">💾</div>
-          <h3 className="font-semibold text-gray-800 mb-2">DB2 Integration</h3>
-          <p className="text-sm text-gray-600">
+        <div className="glass-strong p-6 rounded-lg shadow-lg border border-purple-500">
+          <div className="text-3xl mb-4 text-white shadow-white">💾</div>
+          <h3 className="font-semibold text-white shadow-white mb-4">DB2 Integration</h3>
+          <p className="text-white shadow-white text-sm">
             Stores processed records in local DB2 database instance
           </p>
         </div>
         
-        <div className="bg-white p-6 rounded-lg shadow border border-gray-200">
-          <div className="text-3xl mb-2">📈</div>
-          <h3 className="font-semibold text-gray-800 mb-2">Job Tracking</h3>
-          <p className="text-sm text-gray-600">
+        <div className="glass-strong p-6 rounded-lg shadow-lg border border-purple-500">
+          <div className="text-3xl mb-4 text-white shadow-white">📈</div>
+          <h3 className="font-semibold text-white shadow-white mb-4">Job Tracking</h3>
+          <p className="text-white shadow-white text-sm">
             Track processing statistics and return codes like z/OS
           </p>
         </div>
       </div>
 
       {/* Quick Start */}
-      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mt-8">
-        <h3 className="text-lg font-semibold text-yellow-800 mb-3">
-          🚀 Quick Start
+      <div className="glass-strong border border-purple-500 rounded-lg p-8">
+        <h3 className="text-3xl font-semibold text-white shadow-white mb-6">
+          Quick Start
         </h3>
-        <ol className="list-decimal list-inside space-y-2 text-gray-700">
-          <li>Go to <strong>Upload</strong> page</li>
-          <li>Click <strong>"Download Sample"</strong> to get test data</li>
+        <ol className="list-decimal list-inside space-y-4 text-white shadow-white">
+          <li>Go to <strong className="text-white shadow-white">Upload</strong> page</li>
+          <li>Click <strong className="text-white shadow-white">"Download Sample"</strong> to get test data</li>
           <li>Upload the sample file to process it</li>
-          <li>View results in <strong>Reports</strong> page</li>
+          <li>View results in <strong className="text-white shadow-white">Reports</strong> page</li>
         </ol>
       </div>
     </div>
