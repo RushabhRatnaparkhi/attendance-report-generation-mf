@@ -1,25 +1,10 @@
 import { NextResponse } from 'next/server';
-
-// Initialize global storage if not exists
-if (typeof global.attendanceRecords === 'undefined') {
-  global.attendanceRecords = [];
-}
-if (typeof global.assignmentRecords === 'undefined') {
-  global.assignmentRecords = [];
-}
-if (typeof global.jobStatistics === 'undefined') {
-  global.jobStatistics = [];
-}
+import { fetchRecords, fetchUploadStats } from '@/lib/db2';
 
 /**
- * Calculate attendance status based on check-in time AND original status
- * Logic: 
- * - Check-in <= 9:00 AM AND status = "Present" → Present
- * - Check-in > 9:00 AM AND status = "Present" → Late
- * - No check-in OR status = "Absent/Leave" → Absent/Leave
+ * Calculate attendance status based on check-in time
  */
 function calculateAttendanceStatus(checkInTime, originalStatus) {
-  // If no check-in time OR status is Absent/Leave, keep original status
   if (!checkInTime || checkInTime.trim() === '' || 
       originalStatus === 'Absent' || originalStatus === 'Leave') {
     return {
@@ -31,37 +16,24 @@ function calculateAttendanceStatus(checkInTime, originalStatus) {
   }
 
   try {
-    // Parse check-in time (format: HH:MM:SS or HH:MM)
     const timeParts = checkInTime.split(':');
     const hours = parseInt(timeParts[0]);
     const minutes = parseInt(timeParts[1]);
 
-    // Define cutoff time: 9:00 AM
     const CUTOFF_HOUR = 9;
     const CUTOFF_MINUTE = 0;
 
-    // Check if check-in is AFTER 9:00 AM
-    const isLate = (hours > CUTOFF_HOUR) || 
-                   (hours === CUTOFF_HOUR && minutes > CUTOFF_MINUTE);
+    const isLate = (hours > CUTOFF_HOUR) || (hours === CUTOFF_HOUR && minutes > CUTOFF_MINUTE);
 
-    // Calculate how many minutes late
     let minutesLate = 0;
     if (isLate) {
       minutesLate = (hours - CUTOFF_HOUR) * 60 + (minutes - CUTOFF_MINUTE);
     }
 
-    // NEW LOGIC: Check both time AND original status
     let calculatedStatus;
-    
     if (originalStatus === 'Present') {
-      // If original status is "Present", check the time
-      if (isLate) {
-        calculatedStatus = 'Late';
-      } else {
-        calculatedStatus = 'Present';  // Only if time <= 9:00 AND status = Present
-      }
+      calculatedStatus = isLate ? 'Late' : 'Present';
     } else {
-      // If original status is something else (Late, Absent, Leave), keep it
       calculatedStatus = originalStatus;
     }
 
@@ -83,87 +55,64 @@ function calculateAttendanceStatus(checkInTime, originalStatus) {
 }
 
 /**
- * Report API Route - Dual Mode
- * Fetches processed records and statistics from in-memory storage
+ * Report API Route - Fetch from DB2
  */
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const mode = searchParams.get('mode') || 'attendance';
 
-    console.log('📊 Fetching report for mode:', mode);
+    console.log('📊 Fetching report from DB2 for mode:', mode);
 
     let records = [];
     let statistics = [];
 
     if (mode === 'attendance') {
-      // Fetch attendance records
-      records = global.attendanceRecords || [];
+      // Fetch attendance records from DB2
+      const dbRecords = await fetchRecords('attendance');
       
-      console.log(`📝 Total attendance records found: ${records.length}`);
+      console.log(`📝 Total attendance records found in DB2: ${dbRecords.length}`);
       
-      // Remove duplicates in case they exist
-      const uniqueRecords = [];
-      const seen = new Set();
+      // Calculate attendance status for each record
+      records = dbRecords.map(rec => {
+        const statusInfo = calculateAttendanceStatus(rec.CHECK_IN_TIME, rec.STATUS);
+        
+        return {
+          EMP_ID: rec.EMP_ID,
+          EMP_NAME: rec.EMP_NAME,
+          ATTENDANCE_DATE: rec.ATTENDANCE_DATE,
+          STATUS: rec.STATUS,
+          CHECK_IN_TIME: rec.CHECK_IN_TIME,
+          CHECK_OUT_TIME: rec.CHECK_OUT_TIME,
+          BATCH_ID: rec.UPLOAD_BATCH,
+          CALCULATED_STATUS: statusInfo.calculatedStatus,
+          IS_LATE: statusInfo.isLate,
+          MINUTES_LATE: statusInfo.minutesLate || 0,
+          ORIGINAL_STATUS: rec.STATUS
+        };
+      });
       
-      for (const rec of records) {
-        const key = `${rec.EMP_ID}_${rec.ATTENDANCE_DATE}`;
-        if (!seen.has(key)) {
-          seen.add(key);
-          
-          // Calculate attendance status based on check-in time AND original status
-          const statusInfo = calculateAttendanceStatus(rec.CHECK_IN_TIME, rec.STATUS);
-          
-          // Add calculated fields to record
-          uniqueRecords.push({
-            ...rec,
-            CALCULATED_STATUS: statusInfo.calculatedStatus,
-            IS_LATE: statusInfo.isLate,
-            MINUTES_LATE: statusInfo.minutesLate || 0,
-            ORIGINAL_STATUS: rec.STATUS
-          });
-        }
-      }
+      console.log(`✅ Processed ${records.length} attendance records`);
       
-      records = uniqueRecords;
-      console.log(`✅ Unique attendance records: ${records.length}`);
-      
-      // Calculate statistics
-      const presentCount = records.filter(r => r.CALCULATED_STATUS === 'Present').length;
-      const lateCount = records.filter(r => r.CALCULATED_STATUS === 'Late').length;
-      const absentCount = records.filter(r => 
-        r.CALCULATED_STATUS === 'Absent' || 
-        r.CALCULATED_STATUS === 'Leave'
-      ).length;
-      
-      console.log(`📊 Statistics: Present=${presentCount}, Late=${lateCount}, Absent=${absentCount}`);
-      
-      // Fetch job statistics for attendance mode
-      statistics = (global.jobStatistics || []).filter(s => s.MODE === 'attendance');
-      console.log(`📊 Attendance job statistics found: ${statistics.length}`);
+      // Fetch statistics from DB2
+      statistics = await fetchUploadStats('attendance');
+      console.log(`📊 Attendance statistics found: ${statistics.length}`);
 
     } else {
-      // Fetch assignment records
-      records = global.assignmentRecords || [];
+      // Fetch assignment records from DB2
+      const dbRecords = await fetchRecords('assignment');
       
-      console.log(`📝 Total assignment records found: ${records.length}`);
+      records = dbRecords.map(rec => ({
+        PRIMARY_KEY: rec.PRIMARY_KEY,
+        RECORD_DATA: rec.FULL_RECORD,
+        BATCH_ID: rec.UPLOAD_BATCH,
+        PROCESSED_DATE: rec.UPLOAD_TIMESTAMP
+      }));
       
-      // Remove duplicates based on PRIMARY_KEY
-      const uniqueRecords = [];
-      const seen = new Set();
+      console.log(`✅ Fetched ${records.length} assignment records from DB2`);
       
-      for (const rec of records) {
-        if (!seen.has(rec.PRIMARY_KEY)) {
-          seen.add(rec.PRIMARY_KEY);
-          uniqueRecords.push(rec);
-        }
-      }
-      
-      records = uniqueRecords;
-      console.log(`✅ Unique assignment records: ${records.length}`);
-      
-      // Fetch statistics for assignment mode
-      statistics = (global.jobStatistics || []).filter(s => s.MODE === 'assignment');
+      // Fetch statistics from DB2
+      statistics = await fetchUploadStats('assignment');
       console.log(`📊 Assignment statistics found: ${statistics.length}`);
     }
 

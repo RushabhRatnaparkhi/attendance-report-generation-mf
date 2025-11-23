@@ -1,14 +1,10 @@
 import { NextResponse } from 'next/server';
 import { processFixedLengthRecords } from '@/lib/processData';
-
-// In-memory storage
-global.attendanceRecords = global.attendanceRecords || [];
-global.assignmentRecords = global.assignmentRecords || [];
-global.jobStatistics = global.jobStatistics || [];
+import { insertAttendanceRecords, insertAssignmentRecords, insertUploadStats, connectDB2 } from '@/lib/db2';
 
 /**
- * Upload API Route - Dual Mode
- * Handles both CSV (attendance) and PS file (assignment) uploads
+ * Upload API Route - Dual Mode with DB2
+ * Clears old data and inserts new data (single table approach)
  */
 export async function POST(request) {
   try {
@@ -62,15 +58,14 @@ export async function POST(request) {
       const records = data.map((line, index) => {
         const values = line.split(',');
         return {
-          EMP_ID: values[0]?.trim(),
-          EMP_NAME: values[1]?.trim(),
-          ATTENDANCE_DATE: values[2]?.trim(),
-          STATUS: values[3]?.trim(),
-          CHECK_IN_TIME: values[4]?.trim() || null,
-          CHECK_OUT_TIME: values[5]?.trim() || null,
-          BATCH_ID: batchId
+          empId: values[0]?.trim(),
+          empName: values[1]?.trim(),
+          date: values[2]?.trim(),
+          status: values[3]?.trim(),
+          checkIn: values[4]?.trim() || null,
+          checkOut: values[5]?.trim() || null
         };
-      }).filter(rec => rec.EMP_ID && rec.EMP_NAME);
+      }).filter(rec => rec.empId && rec.empName);
 
       console.log(`📝 Parsed ${records.length} valid records from CSV`);
 
@@ -87,7 +82,7 @@ export async function POST(request) {
       const seen = new Set();
       
       for (const rec of records) {
-        const key = `${rec.EMP_ID}_${rec.ATTENDANCE_DATE}`;
+        const key = `${rec.empId}_${rec.date}`;
         if (!seen.has(key)) {
           seen.add(key);
           uniqueRecords.push(rec);
@@ -96,60 +91,69 @@ export async function POST(request) {
 
       // ✅ SORT by EmpID (ascending), then by Date (ascending) - JCL SORT simulation
       uniqueRecords.sort((a, b) => {
-        // First sort by Employee ID
-        if (a.EMP_ID !== b.EMP_ID) {
-          return a.EMP_ID.localeCompare(b.EMP_ID);
+        if (a.empId !== b.empId) {
+          return a.empId.localeCompare(b.empId);
         }
-        // Then sort by Date
-        return a.ATTENDANCE_DATE.localeCompare(b.ATTENDANCE_DATE);
+        return a.date.localeCompare(b.date);
       });
 
       console.log(`✅ Unique records: ${uniqueRecords.length}, Duplicates removed: ${records.length - uniqueRecords.length}`);
       console.log(`🔄 Sorted by EMP_ID (ascending), then ATTENDANCE_DATE (ascending)`);
 
-      // ⚠️ CLEAR OLD ATTENDANCE DATA before storing new data
-      global.attendanceRecords = [];
-      console.log('🧹 Cleared old attendance records');
+      // ⚠️ CLEAR OLD ATTENDANCE DATA - Delete all rows from table
+      console.log('🧹 Clearing old attendance records from DB2...');
+      const conn = await connectDB2();
+      try {
+        // Use a dummy WHERE clause to avoid SQL0513W warning
+        await conn.query("DELETE FROM EMPLOYEE_ATTENDANCE WHERE 1=1");
+        console.log('✅ Old attendance records cleared');
+      } catch (deleteError) {
+        // SQL0513W is just a warning, not a fatal error
+        if (deleteError.sqlcode === 513 || deleteError.sqlstate === '01504') {
+          console.log('⚠️ Delete warning received (SQL0513W) - continuing anyway');
+        } else {
+          console.error('❌ Delete error:', deleteError);
+          throw deleteError;
+        }
+      } finally {
+        await conn.close();
+      }
 
-      // Store NEW data in memory
-      global.attendanceRecords.push(...uniqueRecords);
-      console.log(`💾 Total attendance records in storage: ${global.attendanceRecords.length}`);
+      // ✅ INSERT NEW DATA into DB2
+      console.log('💾 Inserting new attendance records into DB2...');
+      const insertedCount = await insertAttendanceRecords(uniqueRecords, batchId);
+      console.log(`✅ Inserted ${insertedCount} records into DB2`);
 
       // Calculate statistics
       const presentCount = uniqueRecords.filter(r => {
-        if (!r.CHECK_IN_TIME) return false;
-        const timeParts = r.CHECK_IN_TIME.split(':');
+        if (!r.checkIn) return false;
+        const timeParts = r.checkIn.split(':');
         const hours = parseInt(timeParts[0]);
         const minutes = parseInt(timeParts[1]);
         return (hours < 9) || (hours === 9 && minutes === 0);
       }).length;
 
       const lateCount = uniqueRecords.filter(r => {
-        if (!r.CHECK_IN_TIME) return false;
-        const timeParts = r.CHECK_IN_TIME.split(':');
+        if (!r.checkIn) return false;
+        const timeParts = r.checkIn.split(':');
         const hours = parseInt(timeParts[0]);
         const minutes = parseInt(timeParts[1]);
         return (hours > 9) || (hours === 9 && minutes > 0);
       }).length;
 
-      const absentCount = uniqueRecords.filter(r => !r.CHECK_IN_TIME || r.STATUS === 'Absent' || r.STATUS === 'Leave').length;
+      const absentCount = uniqueRecords.filter(r => !r.checkIn || r.status === 'Absent' || r.status === 'Leave').length;
 
-      // Store statistics (append to history)
-      const stats = {
-        BATCH_ID: batchId,
-        MODE: 'attendance',
-        TOTAL_RECORDS: records.length,
-        DUPLICATES_REMOVED: records.length - uniqueRecords.length,
-        UNIQUE_RECORDS: uniqueRecords.length,
-        PRESENT_COUNT: presentCount,
-        LATE_COUNT: lateCount,
-        ABSENT_COUNT: absentCount,
-        JOB_STATUS: 'COMPLETED',
-        RETURN_CODE: 0,
-        UPLOAD_TIMESTAMP: new Date().toISOString()
-      };
-      global.jobStatistics.push(stats);
-      console.log('📊 Statistics saved:', stats);
+      // Store statistics in DB2 (append to history)
+      await insertUploadStats({
+        batchId,
+        mode: 'attendance',
+        totalRecords: records.length,
+        duplicatesRemoved: records.length - uniqueRecords.length,
+        uniqueRecords: uniqueRecords.length,
+        jobStatus: 'COMPLETED',
+        returnCode: 0
+      });
+      console.log('📊 Statistics saved to DB2');
 
       return NextResponse.json({
         success: true,
@@ -188,34 +192,41 @@ export async function POST(request) {
           );
         }
 
-        // ⚠️ CLEAR OLD ASSIGNMENT DATA before storing new data
-        global.assignmentRecords = [];
-        console.log('🧹 Cleared old assignment records');
+        // ⚠️ CLEAR OLD ASSIGNMENT DATA - Delete all rows from table
+        console.log('🧹 Clearing old assignment records from DB2...');
+        const conn = await connectDB2();
+        try {
+          // Use a dummy WHERE clause to avoid SQL0513W warning
+          await conn.query("DELETE FROM ASSIGNMENT_RECORDS WHERE 1=1");
+          console.log('✅ Old assignment records cleared');
+        } catch (deleteError) {
+          // SQL0513W is just a warning, not a fatal error
+          if (deleteError.sqlcode === 513 || deleteError.sqlstate === '01504') {
+            console.log('⚠️ Delete warning received (SQL0513W) - continuing anyway');
+          } else {
+            console.error('❌ Delete error:', deleteError);
+            throw deleteError;
+          }
+        } finally {
+          await conn.close();
+        }
 
-        // Store NEW data in memory
-        const assignmentRecords = result.processedRecords.map(rec => ({
-          PRIMARY_KEY: rec.primaryKey,
-          RECORD_DATA: rec.fullRecord,
-          BATCH_ID: batchId,
-          PROCESSED_DATE: new Date().toISOString()
-        }));
-        
-        global.assignmentRecords.push(...assignmentRecords);
-        console.log(`💾 Total assignment records in storage: ${global.assignmentRecords.length}`);
+        // ✅ INSERT NEW DATA into DB2
+        console.log('💾 Inserting new assignment records into DB2...');
+        const insertedCount = await insertAssignmentRecords(result.processedRecords, batchId);
+        console.log(`✅ Inserted ${insertedCount} records into DB2`);
 
-        // Store statistics (append to history)
-        const stats = {
-          BATCH_ID: batchId,
-          MODE: 'assignment',
-          TOTAL_RECORDS: result.totalRecords,
-          DUPLICATES_REMOVED: result.duplicatesRemoved,
-          UNIQUE_RECORDS: result.uniqueRecords,
-          JOB_STATUS: 'COMPLETED',
-          RETURN_CODE: 0,
-          UPLOAD_TIMESTAMP: new Date().toISOString()
-        };
-        global.jobStatistics.push(stats);
-        console.log('📊 Statistics saved:', stats);
+        // Store statistics in DB2 (append to history)
+        await insertUploadStats({
+          batchId,
+          mode: 'assignment',
+          totalRecords: result.totalRecords,
+          duplicatesRemoved: result.duplicatesRemoved,
+          uniqueRecords: result.uniqueRecords,
+          jobStatus: 'COMPLETED',
+          returnCode: 0
+        });
+        console.log('📊 Statistics saved to DB2');
 
         return NextResponse.json({
           success: true,
