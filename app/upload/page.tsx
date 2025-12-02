@@ -12,19 +12,20 @@ interface JobDetails {
 }
 
 export default function UploadPage() {
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [mode, setMode] = useState<'attendance' | 'assignment'>('attendance');
   const [uploading, setUploading] = useState(false);
   const [status, setStatus] = useState("");
   const [jobDetails, setJobDetails] = useState<JobDetails | null>(null);
+  const [enqueueResults, setEnqueueResults] = useState<Array<{ fileName: string; jobId?: string | null; ok: boolean; message?: string }>>([]);
   const [error, setError] = useState("");
   const router = useRouter();
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!file) {
-      setError("Please select a file to upload");
+    if (!files || files.length === 0) {
+      setError("Please select one or more files to upload");
       return;
     }
 
@@ -32,35 +33,38 @@ export default function UploadPage() {
     setStatus("📤 Uploading file...");
     setError("");
     setJobDetails(null);
+    setEnqueueResults([]);
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("mode", mode);
+      const results = [];
+      for (const f of files) {
+        const formData = new FormData();
+        formData.append('file', f);
+        formData.append('mode', mode);
 
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
+        setStatus(`📤 Uploading ${f.name} ...`);
+        try {
+          const res = await fetch('/api/upload', { method: 'POST', body: formData });
+          const text = await res.text();
+          let data = {};
+          try { data = text ? JSON.parse(text) : {}; } catch (e) { data = {}; }
 
-      const data = await res.json();
-      
-      if (!res.ok) {
-        throw new Error(data.error || data.details || "Upload failed");
+          if (res.ok && data.success) {
+            results.push({ fileName: f.name, jobId: data.jobId || null, ok: true, message: data.message || 'enqueued' });
+            // attach last successful jobDetails for convenience
+            setJobDetails(data.jobDetails || null);
+          } else {
+            results.push({ fileName: f.name, jobId: data.jobId || null, ok: false, message: data.error || 'failed' });
+          }
+        } catch (err: any) {
+          results.push({ fileName: f.name, ok: false, message: err?.message || 'network error' });
+        }
+        // small delay between files
+        await new Promise((r) => setTimeout(r, 150));
       }
 
-      if (data.success) {
-        setStatus("✅ Processing complete! Job finished successfully.");
-        setJobDetails(data.jobDetails || {
-          batchId: data.batchId,
-          jobStatus: 'COMPLETED',
-          returnCode: 'CC 0000',
-          mode: data.mode,
-          recordsProcessed: data.uniqueRecords
-        });
-      } else {
-        throw new Error(data.error || "Upload processing failed");
-      }
+      setEnqueueResults(results);
+      setStatus('✅ Upload(s) processed.');
 
     } catch (err: any) {
       console.error("Upload error:", err);
@@ -102,12 +106,20 @@ export default function UploadPage() {
           <h1 className="text-5xl font-bold text-white shadow-white">
             📤 Upload Data File
           </h1>
-          <Link
-            href="/report"
-            className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-medium transition"
-          >
-            📊 View All Reports
-          </Link>
+          <div className="flex gap-3">
+            <Link
+              href="/report"
+              className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium transition flex items-center gap-2"
+            >
+              📊 View All Reports
+            </Link>
+            <Link
+              href="/jobs"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium transition flex items-center gap-2"
+            >
+              🗂️ View Job Queue
+            </Link>
+          </div>
         </div>
 
         {/* Mode Selection */}
@@ -170,22 +182,45 @@ export default function UploadPage() {
           </label>
           <input
             type="file"
+            multiple
             accept={mode === "attendance" ? ".csv" : ".txt,.ps"}
             onChange={(e) => {
-              setFile(e.target.files?.[0] || null);
+              const list = e.target.files ? Array.from(e.target.files) : [];
+              setFiles((prev) => {
+                // append and dedupe by name+size
+                const combined = [...prev, ...list];
+                const map = new Map();
+                for (const f of combined) {
+                  map.set(`${f.name}_${f.size}`, f);
+                }
+                return Array.from(map.values());
+              });
               setError("");
               setStatus("");
               setJobDetails(null);
+              setEnqueueResults([]);
             }}
             className="w-full p-3 border border-purple-500 rounded-lg bg-transparent text-white mb-4 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-purple-600 file:text-white hover:file:bg-purple-700 file:cursor-pointer"
             disabled={uploading}
           />
           
-          {file && (
+          {files && files.length > 0 && (
             <div className="mb-4 p-3 glass rounded-lg text-white">
-              <p className="text-sm">
-                <strong>Selected file:</strong> {file.name} ({(file.size / 1024).toFixed(2)} KB)
-              </p>
+              <p className="text-sm mb-2"><strong>Selected files:</strong></p>
+              <ul className="list-none text-sm space-y-2">
+                {files.map((f) => (
+                  <li key={f.name+f.size} className="flex items-center justify-between">
+                    <div className="truncate mr-4">{f.name} ({(f.size/1024).toFixed(2)} KB)</div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setFiles((prev) => prev.filter((x) => !(x.name === f.name && x.size === f.size)))}
+                        className="text-xs bg-red-700 hover:bg-red-600 text-white px-2 py-1 rounded"
+                      >Remove</button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
           
@@ -215,9 +250,9 @@ export default function UploadPage() {
 
           <button
             type="submit"
-            disabled={uploading || !file}
+            disabled={uploading || !files.length}
             className={`w-full py-3 rounded-lg font-semibold transition ${
-              uploading || !file
+              uploading || !files.length
                 ? "bg-gray-600 cursor-not-allowed"
                 : "bg-purple-600 hover:bg-purple-700"
             } text-white`}
@@ -235,6 +270,30 @@ export default function UploadPage() {
             )}
           </button>
         </form>
+
+        {/* Enqueue Results */}
+        {enqueueResults && enqueueResults.length > 0 && (
+          <div className="glass-strong p-6 rounded-lg mt-6 border-2 border-yellow-500">
+            <h3 className="text-lg font-bold mb-3">Enqueue Results</h3>
+            <ul className="space-y-2">
+              {enqueueResults.map((r, idx) => (
+                <li key={`${r.fileName}-${idx}`} className="flex items-center justify-between">
+                  <div>
+                    <div className="font-medium">{r.fileName}</div>
+                    <div className="text-sm text-gray-300">{r.message || (r.ok ? 'enqueued' : 'failed')}</div>
+                  </div>
+                  <div>
+                    {r.jobId ? (
+                      <Link href={`/jobs/${r.jobId}`} className="font-mono text-yellow-300">{r.jobId}</Link>
+                    ) : (
+                      <span className="text-red-400">No job</span>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {/* Job Details */}
         {jobDetails && (
@@ -279,10 +338,11 @@ export default function UploadPage() {
               </button>
               <button
                 onClick={() => {
-                  setFile(null);
+                  setFiles([]);
                   setStatus("");
                   setJobDetails(null);
                   setError("");
+                  setEnqueueResults([]);
                 }}
                 className="flex-1 bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-semibold transition flex items-center justify-center gap-2"
               >
@@ -291,6 +351,25 @@ export default function UploadPage() {
                 </svg>
                 Upload Another File
               </button>
+            </div>
+
+            {/* View Job Details Button */}
+            <div className="mt-4">
+              {jobDetails?.jobId ? (
+                <Link
+                  href={`/jobs/${jobDetails.jobId}`}
+                  className="w-full inline-block bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold text-center transition"
+                >
+                  🔍 View Job Details
+                </Link>
+              ) : (
+                <Link
+                  href={`/jobs`}
+                  className="w-full inline-block bg-gray-600 text-white px-6 py-3 rounded-lg font-semibold text-center transition"
+                >
+                  🔍 View Job List
+                </Link>
+              )}
             </div>
           </div>
         )}

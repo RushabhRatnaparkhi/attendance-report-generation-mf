@@ -37,3 +37,33 @@ export async function POST(request) {
     return NextResponse.json({ success: false, error: err?.message || String(err) }, { status: 500 });
   }
 }
+
+/**
+ * GET /api/jobs
+ * Returns the list of jobs, optionally filtered by status
+ */
+export async function GET(request) {
+  let conn;
+  try {
+    const url = new URL(request.url);
+    const status = url.searchParams.get('status');
+
+    conn = await connectDB2();
+
+    let sql = `SELECT JOB_ID, JOB_NAME, SUBMITTED_BY, STATUS, RETURN_CODE, SUBMIT_TS, UPDATED_TS FROM JOBS`;
+    const params = [];
+    if (status) {
+      sql += ' WHERE STATUS = ?';
+      params.push(status);
+    }
+    sql += ' ORDER BY SUBMIT_TS DESC FETCH FIRST 500 ROWS ONLY';
+
+    const rows = await conn.query(sql, params);
+    return NextResponse.json({ success: true, jobs: rows }, { status: 200 });
+  } catch (err) {
+    console.error('GET /api/jobs error:', err);
+    return NextResponse.json({ success: false, error: err?.message || String(err) }, { status: 500 });
+  } finally {
+    if (conn) try { await conn.close(); } catch (_) {}
+  }
+}

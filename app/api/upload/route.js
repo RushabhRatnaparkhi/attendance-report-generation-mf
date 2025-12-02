@@ -35,6 +35,23 @@ export async function POST(request) {
     const batchId = `BATCH_${Date.now()}`;
     console.log('🆔 Generated Batch ID:', batchId);
 
+    // Enqueue a job representing this upload (JCL = first 200 chars of file)
+    const connForJob = await connectDB2();
+    let enqueuedJobId = null; // <-- store the job id so we can return it to the client
+    try {
+      const jobId = `J${Date.now()}${Math.random().toString(36).slice(2,6).toUpperCase()}`;
+      enqueuedJobId = jobId;
+      const jobName = (file.name || jobId).toString().slice(0,100);
+      const jclSample = fileContent.slice(0, 200);
+      await connForJob.query(
+        'INSERT INTO JOBS (JOB_ID, JOB_NAME, SUBMITTED_BY, STATUS, JCL, UPDATED_TS) VALUES (?, ?, ?, ?, ?, CURRENT TIMESTAMP)',
+        [jobId, jobName, 'uploader', 'INPUT', jclSample]
+      );
+      console.log('🔁 Enqueued job for upload processing:', jobId);
+    } finally {
+      try { await connForJob.close(); } catch (e) {}
+    }
+
     if (mode === 'attendance') {
       console.log('📊 Processing attendance CSV...');
       
@@ -166,8 +183,10 @@ export async function POST(request) {
         lateCount,
         absentCount,
         mode: 'attendance',
+        jobId: enqueuedJobId, // <-- return the enqueued job id
         jobDetails: {
           batchId,
+          jobId: enqueuedJobId,
           jobStatus: 'COMPLETED',
           returnCode: 'CC 0000',
           mode: 'attendance',
@@ -236,8 +255,10 @@ export async function POST(request) {
           duplicatesRemoved: result.duplicatesRemoved,
           uniqueRecords: result.uniqueRecords,
           mode: 'assignment',
+          jobId: enqueuedJobId, // <-- return the enqueued job id here as well
           jobDetails: {
             batchId,
+            jobId: enqueuedJobId,
             jobStatus: 'COMPLETED',
             returnCode: 'CC 0000',
             mode: 'assignment',
